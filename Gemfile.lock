@@ -1,0 +1,44 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ParseTree (3.0.9)
+      RubyInline (~> 3.9.0)
+      sexp_processor (~> 3.2.0)
+    RubyInline (3.9.0)
+      ZenTest (~> 4.3)
+    ZenTest (4.9.5)
+    arguments (0.6)
+      ParseTree (>= 3.0.3)
+      ruby2ruby (= 1.1.9)
+      ruby_parser (>= 2.0.2)
+    concurrent-ruby (0.3.2)
+    eventmachine (1.0.3)
+    ffi (1.9.3)
+    highline (1.6.20)
+    hoe (3.7.1)
+      rake (>= 0.8, < 11.0)
+    live (0.1.2)
+      highline
+    rake (10.1.0)
+    ruby-osc (0.31.0)
+      eventmachine (>= 0.12.8)
+    ruby-processing (1.0.11)
+    ruby2ruby (1.1.9)
+      ParseTree
+      hoe (>= 1.5.3)
+    ruby_parser (2.3.1)
+      sexp_processor (~> 3.0)
+    scruby (0.2.7.2)
+      arguments (~> 0.6)
+      live (~> 0.1)
+      ruby-osc (~> 0.3)
+    sexp_processor (3.2.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  concurrent-ruby
+  ffi
+  ruby-processing
+  scruby
