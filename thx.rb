@@ -3,6 +3,7 @@ require 'ffi'
 module PortAudio
   extend FFI::Library
   typedef :double, :pa_time
+  NO_ERROR=0
   class PaStreamCallbackTimeInfo < FFI::Struct
     layout :inputBufferAdcTime, :pa_time,
            :currentTime, :pa_time,
@@ -21,30 +22,44 @@ module PortAudio
   attach_function :Pa_CloseStream, [:pointer], :int
   attach_function :Pa_GetErrorText, [:int], :string
 end
-data = FFI::MemoryPointer.new :pointer
-stream = FFI::MemoryPointer.new :pointer
-FRAME_RATE=44100
-# FRAME_RATE=22050
-PA_NO_ERROR=0
-check = lambda {|error| raise PortAudio.Pa_GetErrorText(error) unless error == PA_NO_ERROR }
-check[PortAudio.Pa_Initialize]
 
+class Thx
+  FRAME_RATE=44100
+  def initialize(seconds, &block)
+    @seconds = seconds
+    @block = block
+  end
 
-Callback = ->(input, output, buffer_size, time_info, status_flags, data) do
-  # time_info = PortAudio::PaStreamCallbackTimeInfo.new(time_info)
-  output.write_array_of_float buffer_size.times.map { rand -1.0..1.0 }
+  def start
+    check PortAudio.Pa_Initialize
+    stream = FFI::MemoryPointer.new :pointer
+    data = FFI::MemoryPointer.new :pointer
+    check PortAudio.Pa_OpenDefaultStream(stream, 0, 1,
+                                         PortAudio::SAMPLE_FORMAT_FLOAT32,
+                                         FRAME_RATE, 1<<15, method(:callback), data)
+    stream = stream.get_pointer 0
+    check PortAudio.Pa_StartStream stream
+    sleep @seconds
+    check PortAudio.Pa_StopStream stream
+    check PortAudio.Pa_CloseStream stream
+    check PortAudio.Pa_Terminate
+  end
+
+  def self.start(seconds, &block)
+    new(seconds, &block).start
+  end
+
+  private
+  def check(error)
+    raise PortAudio.Pa_GetErrorText(error) unless error == PortAudio::NO_ERROR
+  end
+
+  def callback(input, output, buffer_size, time_info, status_flags, data)
+    time_info = PortAudio::PaStreamCallbackTimeInfo.new time_info
+    output.write_array_of_float buffer_size.times.map { @block.call time_info }
+  end
 end
 
-check[PortAudio.Pa_OpenDefaultStream(stream, 0, 1, PortAudio::SAMPLE_FORMAT_FLOAT32, FRAME_RATE, 1<<17, Callback, data)]
-stream = stream.get_pointer 0
-check[PortAudio.Pa_StartStream(stream)]
-sleep 10
-puts :stopping
-check[PortAudio.Pa_StopStream(stream)]
-puts :stopped
-puts :closing
-check[PortAudio.Pa_CloseStream(stream)]
-puts :closed
-puts :terminating
-check[PortAudio.Pa_Terminate]
-puts :terminated
+Thx.start 10 do |time|
+  rand -1.0..1.0
+end
