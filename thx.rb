@@ -25,7 +25,7 @@ end
 
 class Thx
   FRAME_RATE=44100
-  def initialize(seconds, &block)
+  def initialize(seconds, block)
     @seconds = seconds
     @block = block
     @frames = 0
@@ -37,7 +37,7 @@ class Thx
     data = FFI::MemoryPointer.new :pointer
     check PortAudio.Pa_OpenDefaultStream(stream, 0, 1,
                                          PortAudio::SAMPLE_FORMAT_FLOAT32,
-                                         FRAME_RATE, 1<<17, method(:callback), data)
+                                         FRAME_RATE, 0, method(:callback), data)
     stream = stream.get_pointer 0
     check PortAudio.Pa_StartStream stream
     sleep @seconds
@@ -46,8 +46,8 @@ class Thx
     check PortAudio.Pa_Terminate
   end
 
-  def self.start(seconds, &block)
-    new(seconds, &block).start
+  def self.start(seconds, callback=proc)
+    new(seconds, callback).start
   end
 
   private
@@ -56,7 +56,10 @@ class Thx
   end
 
   def callback(input, output, buffer_size, time_info, status_flags, data)
-    output.write_array_of_float buffer_size.times.map { @block.call(@frames += 1) }
+    output.write_array_of_float buffer_size.times.map {
+      @frames += 1
+      @block.call(@frames / FRAME_RATE.to_f)
+    }
   end
 end
 
@@ -84,6 +87,9 @@ Mix = ->(*signals) {
   }
 }
 
+FadeIn = ->(signal, start, duration) {
+}
+
 Envelope = ->(signal, attack, sustain, decay) {
   ->(i) {
     envelope = if i < attack
@@ -98,5 +104,5 @@ Envelope = ->(signal, attack, sustain, decay) {
     signal[i] * envelope
   }
 }
-
-Thx.start(5, &Envelope[Mix[Squiggle.new, Fuzz], 100000, 10000, 100000])
+GC.disable
+Thx.start(5, Envelope[Mix[Squiggle.new, Fuzz], 0.25, 1, 0.25])
