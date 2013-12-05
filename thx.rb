@@ -28,6 +28,7 @@ class Thx
   def initialize(seconds, &block)
     @seconds = seconds
     @block = block
+    @frames = 0
   end
 
   def start
@@ -55,11 +56,17 @@ class Thx
   end
 
   def callback(input, output, buffer_size, time_info, status_flags, data)
-    time_info = PortAudio::PaStreamCallbackTimeInfo.new time_info
-    output.write_array_of_float buffer_size.times.map { @block.call time_info }
+    output.write_array_of_float buffer_size.times.map { @block.call(@frames += 1) }
   end
 end
 
-Thx.start 10 do |time|
-  rand -1.0..1.0
-end
+frame = 0
+increment = 0.04
+block = ->(i){
+  increment += rand(-0.001..0.001)
+  frame += increment
+  increment *= -1 unless (-1..1).cover?(frame)
+  frame
+}
+
+Thx.start(5, &block)
