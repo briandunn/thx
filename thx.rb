@@ -37,7 +37,7 @@ class Thx
     data = FFI::MemoryPointer.new :pointer
     check PortAudio.Pa_OpenDefaultStream(stream, 0, 1,
                                          PortAudio::SAMPLE_FORMAT_FLOAT32,
-                                         FRAME_RATE, 1<<15, method(:callback), data)
+                                         FRAME_RATE, 1<<17, method(:callback), data)
     stream = stream.get_pointer 0
     check PortAudio.Pa_StartStream stream
     sleep @seconds
@@ -60,13 +60,43 @@ class Thx
   end
 end
 
-frame = 0
-increment = 0.04
-block = ->(i){
-  increment += rand(-0.001..0.001)
-  frame += increment
-  increment *= -1 unless (-1..1).cover?(frame)
-  frame
+class Squiggle
+  def initialize
+    @frame = 0
+    @increment = 0.04
+  end
+
+  def to_proc
+    ->(i) {
+      @increment += rand(-0.001..0.001)
+      @frame += @increment
+      @increment *= -1 unless (-1..1).cover?(@frame)
+      @frame
+    }
+  end
+end
+
+Fuzz = ->(i) { rand -1.0..1.0 }
+
+Mix = ->(*signals) {
+  ->(i) {
+    signals.map { |signal| signal.to_proc[i] }.reduce(:+) / signals.size
+  }
 }
 
-Thx.start(5, &block)
+Envelope = ->(signal, attack, sustain, decay) {
+  ->(i) {
+    envelope = if i < attack
+      i / attack.to_f
+    elsif i < attack + sustain
+      1
+    elsif i < attack + sustain + decay
+      (decay - (i - attack - sustain)) / decay.to_f
+    else
+      0
+    end
+    signal[i] * envelope
+  }
+}
+
+Thx.start(5, &Envelope[Mix[Squiggle.new, Fuzz], 100000, 10000, 100000])
