@@ -63,6 +63,29 @@ class Thx
   end
 end
 
+GC.disable
+
+Fuzz = ->(i) { rand -1.0..1.0 }
+
+# Thx.start 2, Fuzz
+
+Tone = Class.new do
+  def initialize
+    @frame = 0
+    @increment = 0.04
+  end
+
+  def to_proc
+    ->(i) {
+      @frame += @increment
+      @increment *= -1 unless (-1..1).cover?(@frame)
+      @frame
+    }
+  end
+end
+
+# Thx.start 2, &Tone.new
+
 class Squiggle
   def initialize
     @frame = 0
@@ -79,7 +102,7 @@ class Squiggle
   end
 end
 
-Fuzz = ->(i) { rand -1.0..1.0 }
+# Thx.start 2, &Squiggle.new
 
 Mix = ->(*signals) {
   ->(i) {
@@ -88,21 +111,14 @@ Mix = ->(*signals) {
 }
 
 FadeIn = ->(signal, start, duration) {
-}
-
-Envelope = ->(signal, attack, sustain, decay) {
-  ->(i) {
-    envelope = if i < attack
-      i / attack.to_f
-    elsif i < attack + sustain
-      1
-    elsif i < attack + sustain + decay
-      (decay - (i - attack - sustain)) / decay.to_f
+  ->(t) {
+    fade = if (start..(start + duration)).cover?(t)
+      (t - start) / duration.to_f
     else
-      0
+      1
     end
-    signal[i] * envelope
+    signal[t] * fade
   }
 }
-GC.disable
-Thx.start(5, Envelope[Mix[Squiggle.new, Fuzz], 0.25, 1, 0.25])
+
+Thx.start(5, FadeIn[Mix[Squiggle.new, Fuzz], 0, 0.25])
